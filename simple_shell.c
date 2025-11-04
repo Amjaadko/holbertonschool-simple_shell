@@ -2,7 +2,8 @@
 
 int main(void)
 {
-    char line[MAX_INPUT];
+    char *line = NULL;
+    size_t len = 0;
     char *argv[MAX_ARGS];
     pid_t pid;
     int status;
@@ -12,22 +13,22 @@ int main(void)
 
     while (1)
     {
-        /* اطبعي الـ prompt فقط في الوضع التفاعلي */
+        /* عرض prompt في الوضع التفاعلي فقط */
         if (isatty(STDIN_FILENO))
-            printf(":) ");
+            write(STDOUT_FILENO, ":) ", 3);
 
-        /* قراءة الأمر من المستخدم أو من ملف */
-        if (fgets(line, sizeof(line), stdin) == NULL)
+        /* قراءة السطر من المستخدم */
+        if (getline(&line, &len, stdin) == -1)
         {
             if (isatty(STDIN_FILENO))
-                printf("\n");
+                write(STDOUT_FILENO, "\n", 1);
             break;
         }
 
         /* إزالة السطر الجديد */
         line[strcspn(line, "\n")] = '\0';
 
-        /* تقسيم الإدخال إلى أوامر */
+        /* تقسيم الأمر إلى argv */
         i = 0;
         token = strtok(line, " ");
         while (token != NULL && i < MAX_ARGS - 1)
@@ -37,7 +38,7 @@ int main(void)
         }
         argv[i] = NULL;
 
-        /* إذا المستخدم ضغط Enter فقط */
+        /* لو المستخدم ضغط Enter فقط */
         if (argv[0] == NULL)
             continue;
 
@@ -45,8 +46,9 @@ int main(void)
         cmd_path = find_command(argv[0]);
         if (cmd_path == NULL)
         {
-            fprintf(stderr, "%s: command not found\n", argv[0]);
-            continue; /* ما نسوي fork إذا الأمر غير موجود */
+            write(STDERR_FILENO, argv[0], strlen(argv[0]));
+            write(STDERR_FILENO, ": command not found\n", 20);
+            continue;
         }
 
         /* تنفيذ الأمر */
@@ -67,6 +69,7 @@ int main(void)
         }
     }
 
+    free(line);
     return 0;
 }
 

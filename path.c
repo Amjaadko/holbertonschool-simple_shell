@@ -2,12 +2,24 @@
 
 char *find_command(char *command)
 {
-    char *path = getenv("PATH");
-    char *path_copy, *dir;
+    char *path = NULL, *dir, *path_copy;
     static char full_path[1024];
+    int i = 0;
 
+    /* إذا كان الأمر يبدأ بـ / أو . نرجعه مباشرة */
     if (command[0] == '/' || command[0] == '.')
         return command;
+
+    /* نحصل على PATH من environ يدويًا */
+    while (environ[i])
+    {
+        if (strncmp(environ[i], "PATH=", 5) == 0)
+        {
+            path = environ[i] + 5;
+            break;
+        }
+        i++;
+    }
 
     if (!path)
         return NULL;
