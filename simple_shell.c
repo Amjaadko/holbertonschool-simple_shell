@@ -10,24 +10,18 @@
 
 extern char **environ;
 
-/**
- * find_path - تبحث عن الأمر داخل PATH وتعيد المسار الكامل له
- * @command: اسم الأمر المراد تنفيذه
- * Return: المؤشر إلى المسار الكامل أو NULL إذا لم يتم العثور عليه
- */
+/* دالة تبحث عن الأمر داخل PATH */
 char *find_path(char *command)
 {
-    char *path, *path_copy, *dir;
+    char *path = getenv("PATH");
+    char *path_copy;
+    char *dir;
     static char full_path[1024];
 
-    path = getenv("PATH");
-    if (path == NULL)
-        return (NULL);
+    if (!path)
+        return NULL;
 
     path_copy = strdup(path);
-    if (path_copy == NULL)
-        return (NULL);
-
     dir = strtok(path_copy, ":");
     while (dir != NULL)
     {
@@ -35,18 +29,14 @@ char *find_path(char *command)
         if (access(full_path, X_OK) == 0)
         {
             free(path_copy);
-            return (full_path);
+            return full_path;
         }
         dir = strtok(NULL, ":");
     }
     free(path_copy);
-    return (NULL);
+    return NULL;
 }
 
-/**
- * main - برنامج shell بسيط
- * Return: 0 عند الخروج
- */
 int main(void)
 {
     char input[MAX_INPUT];
@@ -56,7 +46,6 @@ int main(void)
     int i;
     char *token;
     char *cmd_path;
-    char *delim = " \t\r\n";
 
     while (1)
     {
@@ -64,63 +53,56 @@ int main(void)
         if (fgets(input, sizeof(input), stdin) == NULL)
         {
             printf("\n");
-            break;
+            break; /* Ctrl+D */
         }
 
-        /* إزالة نهاية السطر */
         input[strcspn(input, "\n")] = '\0';
 
         if (strlen(input) == 0)
             continue;
 
-        /* تقسيم الإدخال إلى كلمات */
-        token = strtok(input, delim);
+        /* تقسيم النص إلى أوامر */
         i = 0;
+        token = strtok(input, " ");
         while (token != NULL && i < MAX_ARGS - 1)
         {
             argv[i++] = token;
-            token = strtok(NULL, delim);
+            token = strtok(NULL, " ");
         }
         argv[i] = NULL;
 
-        if (argv[0] == NULL)
-            continue;
-
-        /* أمر الخروج */
         if (strcmp(argv[0], "exit") == 0)
             break;
 
-        pid = fork();
-        if (pid == -1)
+        /* تحققي من المسار */
+        cmd_path = argv[0];
+        if (access(cmd_path, X_OK) != 0)
         {
-            perror("fork");
-            continue;
-        }
-        else if (pid == 0)
-        {
-            /* في عملية الابن */
-            if (strchr(argv[0], '/') != NULL)
-                cmd_path = argv[0];
-            else
-                cmd_path = find_path(argv[0]);
-
+            cmd_path = find_path(argv[0]);
             if (cmd_path == NULL)
             {
                 fprintf(stderr, "%s: command not found\n", argv[0]);
-                exit(127);
+                continue; /* ما يسوي fork */
             }
+        }
 
+        pid = fork();
+        if (pid == 0)
+        {
             execve(cmd_path, argv, environ);
             perror("execve");
-            exit(EXIT_FAILURE);
+            exit(1);
+        }
+        else if (pid > 0)
+        {
+            waitpid(pid, &status, 0);
         }
         else
         {
-            /* في عملية الأب */
-            waitpid(pid, &status, 0);
+            perror("fork");
         }
     }
 
-    return (0);
+    return 0;
 }
 
