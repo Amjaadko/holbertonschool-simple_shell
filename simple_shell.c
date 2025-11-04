@@ -2,9 +2,8 @@
 
 int main(void)
 {
-    char *line = NULL, *argv[64];
-    ssize_t nread;
-    size_t len = 0;
+    char line[MAX_INPUT];
+    char *argv[MAX_ARGS];
     pid_t pid;
     int status;
     char *token;
@@ -13,41 +12,41 @@ int main(void)
 
     while (1)
     {
-        printf(":) ");
-        nread = getline(&line, &len, stdin);
-        if (nread == -1)
+        /* اطبعي الـ prompt فقط في الوضع التفاعلي */
+        if (isatty(STDIN_FILENO))
+            printf(":) ");
+
+        /* قراءة الأمر من المستخدم أو من ملف */
+        if (fgets(line, sizeof(line), stdin) == NULL)
         {
-            printf("\n");
+            if (isatty(STDIN_FILENO))
+                printf("\n");
             break;
         }
 
-        /* إزالة الـ newline */
-        if (line[nread - 1] == '\n')
-            line[nread - 1] = '\0';
+        /* إزالة السطر الجديد */
+        line[strcspn(line, "\n")] = '\0';
 
-        /* تقسيم السطر إلى أوامر */
-        token = strtok(line, " ");
+        /* تقسيم الإدخال إلى أوامر */
         i = 0;
-        while (token && i < 63)
+        token = strtok(line, " ");
+        while (token != NULL && i < MAX_ARGS - 1)
         {
             argv[i++] = token;
             token = strtok(NULL, " ");
         }
         argv[i] = NULL;
 
+        /* إذا المستخدم ضغط Enter فقط */
         if (argv[0] == NULL)
             continue;
 
-        /* إذا كتب exit */
-        if (strcmp(argv[0], "exit") == 0)
-            break;
-
-        /* البحث عن الأمر في PATH */
+        /* إيجاد المسار الكامل للأمر */
         cmd_path = find_command(argv[0]);
         if (cmd_path == NULL)
         {
-            fprintf(stderr, "./hsh: 1: %s: not found\n", argv[0]);
-            continue; /* لا يتم تنفيذ fork */
+            fprintf(stderr, "%s: command not found\n", argv[0]);
+            continue; /* ما نسوي fork إذا الأمر غير موجود */
         }
 
         /* تنفيذ الأمر */
@@ -60,8 +59,7 @@ int main(void)
         }
         else if (pid > 0)
         {
-            wait(&status);
-            free(cmd_path);
+            waitpid(pid, &status, 0);
         }
         else
         {
@@ -69,7 +67,6 @@ int main(void)
         }
     }
 
-    free(line);
     return 0;
 }
 
