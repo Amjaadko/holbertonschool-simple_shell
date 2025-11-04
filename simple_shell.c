@@ -7,6 +7,9 @@ int main(void)
     size_t len = 0;
     pid_t pid;
     int status;
+    char *token;
+    int i;
+    char *cmd_path;
 
     while (1)
     {
@@ -23,8 +26,8 @@ int main(void)
             line[nread - 1] = '\0';
 
         /* تقسيم السطر إلى أوامر */
-        char *token = strtok(line, " ");
-        int i = 0;
+        token = strtok(line, " ");
+        i = 0;
         while (token && i < 63)
         {
             argv[i++] = token;
@@ -40,7 +43,7 @@ int main(void)
             break;
 
         /* البحث عن الأمر في PATH */
-        char *cmd_path = find_command(argv[0]);
+        cmd_path = find_command(argv[0]);
         if (cmd_path == NULL)
         {
             fprintf(stderr, "./hsh: 1: %s: not found\n", argv[0]);
