@@ -1,109 +1,64 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include "shell.h"
 
-#define MAX_INPUT 1024
-#define MAX_ARGS 64
-extern char **environ;
-
-/**
- * find_path - تبحث عن المسار الكامل للأمر داخل PATH
- * @command: اسم الأمر
- * Return: المسار الكامل أو NULL إذا لم يُوجد
- */
-char *find_path(char *command)
-{
-    char *path = getenv("PATH");
-    char *path_copy, *dir;
-    static char full_path[1024];
-
-    if (!path)
-        return NULL;
-
-    path_copy = strdup(path);
-    if (!path_copy)
-        return NULL;
-
-    dir = strtok(path_copy, ":");
-    while (dir != NULL)
-    {
-        snprintf(full_path, sizeof(full_path), "%s/%s", dir, command);
-        if (access(full_path, X_OK) == 0)
-        {
-            free(path_copy);
-            return full_path;
-        }
-        dir = strtok(NULL, ":");
-    }
-    free(path_copy);
-    return NULL;
-}
-
-/**
- * main - simple shell 0.3
- * Return: 0 on success
- */
 int main(void)
 {
-    char input[MAX_INPUT];
-    char *argv[MAX_ARGS];
+    char *line = NULL, *argv[64];
+    ssize_t nread;
+    size_t len = 0;
     pid_t pid;
     int status;
-    char *token;
-    char *cmd_path;
-    int i;
 
     while (1)
     {
-        printf("$ ");
-        fflush(stdout);
-
-        if (fgets(input, sizeof(input), stdin) == NULL)
+        printf(":) ");
+        nread = getline(&line, &len, stdin);
+        if (nread == -1)
         {
             printf("\n");
             break;
         }
 
-        input[strcspn(input, "\n")] = '\0';
+        /* إزالة الـ newline */
+        if (line[nread - 1] == '\n')
+            line[nread - 1] = '\0';
 
-        if (strlen(input) == 0)
-            continue;
-
-        i = 0;
-        token = strtok(input, " ");
-        while (token != NULL && i < MAX_ARGS - 1)
+        /* تقسيم السطر إلى أوامر */
+        char *token = strtok(line, " ");
+        int i = 0;
+        while (token && i < 63)
         {
             argv[i++] = token;
             token = strtok(NULL, " ");
         }
         argv[i] = NULL;
 
+        if (argv[0] == NULL)
+            continue;
+
+        /* إذا كتب exit */
         if (strcmp(argv[0], "exit") == 0)
             break;
 
-        cmd_path = argv[0];
-        if (access(cmd_path, X_OK) != 0)
-            cmd_path = find_path(argv[0]);
-
-        if (!cmd_path)
+        /* البحث عن الأمر في PATH */
+        char *cmd_path = find_command(argv[0]);
+        if (cmd_path == NULL)
         {
-            fprintf(stderr, "%s: command not found\n", argv[0]);
-            continue;
+            fprintf(stderr, "./hsh: 1: %s: not found\n", argv[0]);
+            continue; /* لا يتم تنفيذ fork */
         }
 
+        /* تنفيذ الأمر */
         pid = fork();
         if (pid == 0)
         {
             execve(cmd_path, argv, environ);
             perror("execve");
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         else if (pid > 0)
         {
-            waitpid(pid, &status, 0);
+            wait(&status);
+            free(cmd_path);
         }
         else
         {
@@ -111,6 +66,7 @@ int main(void)
         }
     }
 
+    free(line);
     return 0;
 }
 
