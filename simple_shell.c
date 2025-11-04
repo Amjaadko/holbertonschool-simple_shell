@@ -46,10 +46,12 @@ int main(void)
         cmd_path = find_command(argv[0]);
         if (cmd_path == NULL)
         {
-            write(STDERR_FILENO, argv[0], strlen(argv[0]));
-            write(STDERR_FILENO, ": command not found\n", 20);
-            continue;
+             dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+             /* نعيد كود خروج 127 مثل bash */
+             status = 127;
+             continue;
         }
+
 
         /* تنفيذ الأمر */
         pid = fork();
