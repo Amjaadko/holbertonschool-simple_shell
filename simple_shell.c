@@ -1,137 +1,69 @@
 #include "shell.h"
 
 /**
- * trim_whitespace - Remove leading/trailing spaces/tabs/newlines
- * @s: Input string
- * Return: Pointer to trimmed string (same buffer)
+ * prompt - يطبع العلامة ويقرأ الأمر من المستخدم
  */
-char *trim_whitespace(char *s)
+void prompt(void)
 {
-    char *end;
-
-    if (!s)
-        return (NULL);
-
-    while (*s == ' ' || *s == '\t' || *s == '\n')
-        s++;
-
-    if (*s == '\0')
-        return (s);
-
-    end = s + strlen(s) - 1;
-    while (end > s && (*end == ' ' || *end == '\t' || *end == '\n'))
-    {
-        *end = '\0';
-        end--;
-    }
-    return (s);
-}
-
-/**
- * parse_input - Split a command line into tokens
- * @cmd: Input command (modified)
- * @argv_exec: Output array for tokens (MAX_ARGS)
- * Return: Number of tokens
- */
-int parse_input(char *cmd, char **argv_exec)
-{
-    char *tok;
-    int i = 0;
-
-    tok = strtok(cmd, " \t");
-    while (tok && i < (MAX_ARGS - 1))
-    {
-        argv_exec[i++] = tok;
-        tok = strtok(NULL, " \t");
-    }
-    argv_exec[i] = NULL;
-    return (i);
-}
-
-/**
- * run_command_line - Execute a command
- * @argv_exec: Command and arguments
- * @count: Command number (for error messages)
- * @last_status: Stores the command exit status
- * Return: 0 on success, 1 on failure
- */
-int run_command_line(char **argv_exec, unsigned long count, int *last_status)
-{
+    char *line = NULL, *command = NULL;
+    size_t len = 0;
+    ssize_t read;
     pid_t pid;
+    int status;
     char *cmd_path;
-
-    cmd_path = find_command(argv_exec[0]);
-    if (!cmd_path)
-    {
-        write(STDERR_FILENO, "./hsh: 1: ", 11);
-        write(STDERR_FILENO, argv_exec[0], strlen(argv_exec[0]));
-        write(STDERR_FILENO, ": not found\n", 12);
-        *last_status = 127;
-        return (1);
-    }
-
-    pid = fork();
-    if (pid == 0)
-    {
-        execve(cmd_path, argv_exec, environ);
-        perror("execve");
-        exit(EXIT_FAILURE);
-    }
-    else if (pid > 0)
-        waitpid(pid, last_status, 0);
-    else
-        perror("fork");
-
-    return (0);
-}
-
-/**
- * shell_loop - prompt → read → parse → execute
- * Return: last command status
- */
-int shell_loop(void)
-{
-    char *line = NULL, *cmd;
-    size_t cap = 0;
-    ssize_t n;
-    char *argv_exec[MAX_ARGS];
-    int last_status = 0;
-    unsigned long count = 0;
 
     while (1)
     {
-        if (isatty(STDIN_FILENO))
-            write(STDOUT_FILENO, ":) ", 3);
+        printf(":) ");
+        read = getline(&line, &len, stdin);
 
-        n = getline(&line, &cap, stdin);
-        if (n == -1)
+        if (read == -1)
         {
-            if (isatty(STDIN_FILENO))
-                write(STDOUT_FILENO, "\n", 1);
+            printf("\n");
             break;
         }
 
-        if (n > 0 && line[n - 1] == '\n')
-            line[n - 1] = '\0';
+        /* إزالة السطر الجديد */
+        line[strcspn(line, "\n")] = '\0';
 
-        cmd = trim_whitespace(line);
-        if (!cmd || *cmd == '\0' || parse_input(cmd, argv_exec) == 0)
+        if (strlen(line) == 0)
             continue;
 
-        count++;
-        run_command_line(argv_exec, count, &last_status);
+        cmd_path = find_command_in_path(line);
+        if (cmd_path == NULL)
+        {
+            fprintf(stderr, "%s: command not found\n", line);
+            continue;
+        }
+
+        pid = fork();
+        if (pid == 0)
+        {
+            execl(cmd_path, line, (char *)NULL);
+            perror("exec error");
+            exit(EXIT_FAILURE);
+        }
+        else if (pid > 0)
+        {
+            waitpid(pid, &status, 0);
+        }
+        else
+        {
+            perror("fork failed");
+        }
+
+        free(cmd_path);
     }
 
     free(line);
-    return (last_status);
 }
 
 /**
- * main - Entry point
- * Return: exit status from shell_loop
+ * main - دالة البداية
  */
 int main(void)
 {
-    return (shell_loop());
+    prompt();
+    return 0;
 }
 

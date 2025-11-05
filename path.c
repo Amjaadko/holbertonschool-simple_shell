@@ -1,106 +1,50 @@
 #include "shell.h"
 
 /**
- * is_exec - Check if a path exists and is executable
- * @p: Path to check
- * Return: 1 if regular file and executable, 0 otherwise
+ * find_command_in_path - يبحث عن المسار الكامل للأمر داخل PATH
+ * @command: اسم الأمر
+ * Return: المسار الكامل إذا وُجد، NULL إذا لم يوجد
  */
-static int is_exec(const char *p)
+char *find_command_in_path(char *command)
 {
-	struct stat st;
+    char *path, *path_copy, *token, *full_path;
+    size_t len;
+    int access_result;
 
-	return (p && stat(p, &st) == 0 && S_ISREG(st.st_mode)
-		&& access(p, X_OK) == 0);
-}
+    if (access(command, X_OK) == 0)
+        return strdup(command);
 
-/**
- * next_path_component - Copy one PATH component into dirbuf
- * @start: current scan position in PATH
- * @nextp: out pointer to next position after component (or NULL if end)
- * @dirbuf: output buffer for component ('.' if empty)
- * @sz: size of dirbuf
- * Return: 1 if a component was produced, 0 if PATH ended
- */
-static int next_path_component(const char *start,
-	const char **nextp, char *dirbuf, size_t sz)
-{
-	const char *colon;
-	size_t len;
+    path = getenv("PATH");
+    if (!path)
+        return NULL;
 
-	if (!start)
-		return (0);
+    path_copy = strdup(path);
+    token = strtok(path_copy, ":");
 
-	colon = strchr(start, ':');
-	len = colon ? (size_t)(colon - start) : strlen(start);
+    while (token != NULL)
+    {
+        len = strlen(token) + strlen(command) + 2;
+        full_path = malloc(len);
+        if (!full_path)
+        {
+            free(path_copy);
+            return NULL;
+        }
 
-	if (len == 0)
-	{
-		dirbuf[0] = '.';
-		dirbuf[1] = '\0';
-	}
-	else
-	{
-		if (len >= sz)
-			len = sz - 1;
-		memcpy(dirbuf, start, len);
-		dirbuf[len] = '\0';
-	}
+        snprintf(full_path, len, "%s/%s", token, command);
+        access_result = access(full_path, X_OK);
 
-	*nextp = colon ? (colon + 1) : NULL;
-	return (1);
-}
+        if (access_result == 0)
+        {
+            free(path_copy);
+            return full_path;
+        }
 
-/**
- * build_full - Build "dir/leaf" into @full
- * @full: output buffer
- * @fsz: size of @full
- * @dir: directory component
- * @leaf: filename
- * Return: 1 on success, 0 on overflow
- */
-static int build_full(char *full, size_t fsz,
-	const char *dir, const char *leaf)
-{
-	size_t dl = strlen(dir), ll = strlen(leaf);
+        free(full_path);
+        token = strtok(NULL, ":");
+    }
 
-	if (dl + 1 + ll + 1 > fsz)
-		return (0);
-
-	memcpy(full, dir, dl);
-	full[dl] = '/';
-	memcpy(full + dl + 1, leaf, ll);
-	full[dl + 1 + ll] = '\0';
-	return (1);
-}
-
-/**
- * find_path - Resolve command using PATH (empty entries mean ".")
- * @cmd: Command name (e.g., "ls") or path (e.g., "/bin/ls")
- * Return: Pointer to static buffer with full path, or NULL if not found
- */
-char *find_path(char *cmd)
-{
-	static char full[1024], dir[512];
-	const char *scan, *next;
-
-	if (!cmd || *cmd == '\0')
-		return (NULL);
-
-	if (strchr(cmd, '/'))
-		return (is_exec(cmd) ? cmd : NULL);
-
-	scan = env_get("PATH");
-	if (!scan || *scan == '\0')
-		return (NULL);
-
-	while (next_path_component(scan, &next, dir, sizeof(dir)))
-	{
-		if (build_full(full, sizeof(full), dir, cmd) && is_exec(full))
-			return (full);
-		if (!next)
-			break;
-		scan = next;
-	}
-	return (NULL);
+    free(path_copy);
+    return NULL;
 }
 
