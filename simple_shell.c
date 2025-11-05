@@ -1,75 +1,110 @@
 #include "shell.h"
 
+/**
+ * main - simple shell supporting PATH and relative/absolute paths
+ *
+ * Read lines with getline, tokenize, search PATH via find_command,
+ * do not fork if command not found, print proper error messages and
+ * return last status on exit.
+ */
 int main(void)
 {
-    char *line = NULL;
-    size_t len = 0;
-    char *argv[MAX_ARGS];
-    pid_t pid;
-    int status;
-    char *token;
-    int i;
-    char *cmd_path;
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t nread;
+	char *argv[MAX_ARGS];
+	char *token;
+	int i;
+	pid_t pid;
+	int status = 0;
+	char *cmd_path;
 
-    while (1)
-    {
-        /* عرض prompt في الوضع التفاعلي فقط */
-        if (isatty(STDIN_FILENO))
-            write(STDOUT_FILENO, ":) ", 3);
+	while (1)
+	{
+		/* print prompt only in interactive mode */
+		if (isatty(STDIN_FILENO))
+			write(STDOUT_FILENO, ":) ", 3);
 
-        /* قراءة السطر من المستخدم */
-        if (getline(&line, &len, stdin) == -1)
-        {
-            if (isatty(STDIN_FILENO))
-                write(STDOUT_FILENO, "\n", 1);
-            break;
-        }
+		nread = getline(&line, &len, stdin);
+		if (nread == -1)
+		{
+			/* EOF (Ctrl+D) or read error */
+			if (isatty(STDIN_FILENO))
+				write(STDOUT_FILENO, "\n", 1);
+			break;
+		}
 
-        /* إزالة السطر الجديد */
-        line[strcspn(line, "\n")] = '\0';
+		/* strip newline */
+		if (nread > 0 && line[nread - 1] == '\n')
+			line[nread - 1] = '\0';
 
-        /* تقسيم الأمر إلى argv */
-        i = 0;
-        token = strtok(line, " ");
-        while (token != NULL && i < MAX_ARGS - 1)
-        {
-            argv[i++] = token;
-            token = strtok(NULL, " ");
-        }
-        argv[i] = NULL;
+		/* skip empty lines */
+		if (line[0] == '\0')
+			continue;
 
-        /* لو المستخدم ضغط Enter فقط */
-        if (argv[0] == NULL)
-            continue;
+		/* tokenize into argv[] */
+		i = 0;
+		token = strtok(line, " \t");
+		while (token != NULL && i < (MAX_ARGS - 1))
+		{
+			argv[i++] = token;
+			token = strtok(NULL, " \t");
+		}
+		argv[i] = NULL;
 
-        /* إيجاد المسار الكامل للأمر */
-        cmd_path = find_command(argv[0]);
-        if (cmd_path == NULL)
-        {
-            write(STDERR_FILENO, argv[0], strlen(argv[0]));
-            write(STDERR_FILENO, ": command not found\n", 20);
-            continue;
-        }
+		if (argv[0] == NULL)
+			continue;
 
-        /* تنفيذ الأمر */
-        pid = fork();
-        if (pid == 0)
-        {
-            execve(cmd_path, argv, environ);
-            perror("execve");
-            exit(EXIT_FAILURE);
-        }
-        else if (pid > 0)
-        {
-            waitpid(pid, &status, 0);
-        }
-        else
-        {
-            perror("fork");
-        }
-    }
+		/* built-in exit */
+		if (strcmp(argv[0], "exit") == 0)
+			break;
 
-    free(line);
-    return 0;
+		/* If command contains a slash -> treat as path (absolute or relative) */
+		if (strchr(argv[0], '/') != NULL)
+		{
+			if (access(argv[0], X_OK) != 0)
+			{
+				/* command file not found or not executable */
+				dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+				status = 127;
+				continue; /* do not fork */
+			}
+			cmd_path = argv[0];
+		}
+		else
+		{
+			/* search in PATH */
+			cmd_path = find_command(argv[0]);
+			if (cmd_path == NULL)
+			{
+				dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+				status = 127;
+				continue; /* do not fork */
+			}
+		}
+
+		/* fork and execute */
+		pid = fork();
+		if (pid == -1)
+		{
+			perror("fork");
+			free(line);
+			return (1);
+		}
+		if (pid == 0)
+		{
+			execve(cmd_path, argv, environ);
+			/* if execve returns, it's an error */
+			dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+			_exit(127);
+		}
+		else
+		{
+			waitpid(pid, &status, 0);
+		}
+	}
+
+	free(line);
+	return (status);
 }
 

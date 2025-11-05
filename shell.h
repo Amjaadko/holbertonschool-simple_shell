@@ -7,13 +7,13 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #define MAX_INPUT 1024
 #define MAX_ARGS 64
 
 extern char **environ;
 
-/* دالة البحث عن الأمر (من path.c) */
 char *find_command(char *command);
 
 #endif /* SHELL_H */
