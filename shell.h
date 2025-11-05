@@ -13,7 +13,8 @@
 
 extern char **environ;
 
+/* دالة البحث عن الأمر (من path.c) */
 char *find_command(char *command);
 
-#endif
+#endif /* SHELL_H */
 

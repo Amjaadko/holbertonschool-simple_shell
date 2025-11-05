@@ -1,75 +1,123 @@
 #include "shell.h"
 
-int main(void)
+/**
+ * main - Simple shell program
+ * @ac: argument count
+ * @av: argument vector
+ * @envp: environment variables
+ * Return: 0 on success
+ */
+int main(int ac, char **av, char **envp)
 {
     char *line = NULL;
     size_t len = 0;
-    char *argv[MAX_ARGS];
-    pid_t pid;
-    int status;
-    char *token;
+    ssize_t read;
+    char *args[64];
     int i;
-    char *cmd_path;
+    pid_t pid;
+    (void)ac;
 
     while (1)
     {
-        /* عرض prompt في الوضع التفاعلي فقط */
         if (isatty(STDIN_FILENO))
-            write(STDOUT_FILENO, ":) ", 3);
+            write(1, ":) ", 3);
 
-        /* قراءة السطر من المستخدم */
-        if (getline(&line, &len, stdin) == -1)
+        read = getline(&line, &len, stdin);
+        if (read == -1)
         {
-            if (isatty(STDIN_FILENO))
-                write(STDOUT_FILENO, "\n", 1);
-            break;
+            free(line);
+            exit(0);
         }
 
-        /* إزالة السطر الجديد */
-        line[strcspn(line, "\n")] = '\0';
+        /* إزالة \n */
+        if (line[read - 1] == '\n')
+            line[read - 1] = '\0';
 
-        /* تقسيم الأمر إلى argv */
+        /* تجاهل الأسطر الفارغة */
+        if (line[0] == '\0')
+            continue;
+
+        /* تقسيم الإدخال إلى كلمات */
         i = 0;
-        token = strtok(line, " ");
-        while (token != NULL && i < MAX_ARGS - 1)
+        args[i] = strtok(line, " ");
+        while (args[i] != NULL && i < 63)
         {
-            argv[i++] = token;
-            token = strtok(NULL, " ");
+            i++;
+            args[i] = strtok(NULL, " ");
         }
-        argv[i] = NULL;
+        args[i] = NULL;
 
-        /* لو المستخدم ضغط Enter فقط */
-        if (argv[0] == NULL)
-            continue;
-
-        /* إيجاد المسار الكامل للأمر */
-        cmd_path = find_command(argv[0]);
-        if (cmd_path == NULL)
+        /* أمر exit */
+        if (strcmp(args[0], "exit") == 0)
         {
-            write(STDERR_FILENO, argv[0], strlen(argv[0]));
-            write(STDERR_FILENO, ": command not found\n", 20);
-            continue;
+            free(line);
+            exit(0);
         }
 
-        /* تنفيذ الأمر */
         pid = fork();
+        if (pid == -1)
+        {
+            perror("Error");
+            free(line);
+            exit(1);
+        }
+
         if (pid == 0)
         {
-            execve(cmd_path, argv, environ);
-            perror("execve");
-            exit(EXIT_FAILURE);
-        }
-        else if (pid > 0)
-        {
-            waitpid(pid, &status, 0);
+            /* إذا فيه / في الاسم، نفذ مباشرة */
+            if (strchr(args[0], '/'))
+            {
+                if (access(args[0], X_OK) == 0)
+                {
+                    execve(args[0], args, envp);
+                    perror("./hsh");
+                    exit(127);
+                }
+                else
+                {
+                    perror("./hsh");
+                    exit(127);
+                }
+            }
+            else
+            {
+                /* البحث داخل PATH */
+                char *path = getenv("PATH");
+                char *path_copy, *dir, full_path[1024];
+
+                if (path == NULL || *path == '\0')
+                {
+                    perror("./hsh");
+                    exit(127);
+                }
+
+                path_copy = strdup(path);
+                dir = strtok(path_copy, ":");
+
+                while (dir != NULL)
+                {
+                    snprintf(full_path, sizeof(full_path), "%s/%s", dir, args[0]);
+                    if (access(full_path, X_OK) == 0)
+                    {
+                        execve(full_path, args, envp);
+                        perror("./hsh");
+                        free(path_copy);
+                        exit(127);
+                    }
+                    dir = strtok(NULL, ":");
+                }
+
+                free(path_copy);
+                perror("./hsh");
+                exit(127);
+            }
         }
         else
         {
-            perror("fork");
+            wait(NULL);
         }
     }
 
     free(line);
-    return 0;
-}
+    return (0
 
