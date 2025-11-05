@@ -1,113 +1,137 @@
 #include "shell.h"
 
 /**
- * main - simple shell supporting PATH and relative/absolute paths
- *
- * Read lines with getline, tokenize, search PATH via find_command,
- * do not fork if command not found, print proper error messages and
- * return last status on exit.
+ * trim_whitespace - Remove leading/trailing spaces/tabs/newlines
+ * @s: Input string
+ * Return: Pointer to trimmed string (same buffer)
+ */
+char *trim_whitespace(char *s)
+{
+    char *end;
+
+    if (!s)
+        return (NULL);
+
+    while (*s == ' ' || *s == '\t' || *s == '\n')
+        s++;
+
+    if (*s == '\0')
+        return (s);
+
+    end = s + strlen(s) - 1;
+    while (end > s && (*end == ' ' || *end == '\t' || *end == '\n'))
+    {
+        *end = '\0';
+        end--;
+    }
+    return (s);
+}
+
+/**
+ * parse_input - Split a command line into tokens
+ * @cmd: Input command (modified)
+ * @argv_exec: Output array for tokens (MAX_ARGS)
+ * Return: Number of tokens
+ */
+int parse_input(char *cmd, char **argv_exec)
+{
+    char *tok;
+    int i = 0;
+
+    tok = strtok(cmd, " \t");
+    while (tok && i < (MAX_ARGS - 1))
+    {
+        argv_exec[i++] = tok;
+        tok = strtok(NULL, " \t");
+    }
+    argv_exec[i] = NULL;
+    return (i);
+}
+
+/**
+ * run_command_line - Execute a command
+ * @argv_exec: Command and arguments
+ * @count: Command number (for error messages)
+ * @last_status: Stores the command exit status
+ * Return: 0 on success, 1 on failure
+ */
+int run_command_line(char **argv_exec, unsigned long count, int *last_status)
+{
+    pid_t pid;
+    char *cmd_path;
+
+    cmd_path = find_command(argv_exec[0]);
+    if (!cmd_path)
+    {
+        write(STDERR_FILENO, "./hsh: 1: ", 11);
+        write(STDERR_FILENO, argv_exec[0], strlen(argv_exec[0]));
+        write(STDERR_FILENO, ": not found\n", 12);
+        *last_status = 127;
+        return (1);
+    }
+
+    pid = fork();
+    if (pid == 0)
+    {
+        execve(cmd_path, argv_exec, environ);
+        perror("execve");
+        exit(EXIT_FAILURE);
+    }
+    else if (pid > 0)
+        waitpid(pid, last_status, 0);
+    else
+        perror("fork");
+
+    return (0);
+}
+
+/**
+ * shell_loop - prompt → read → parse → execute
+ * Return: last command status
+ */
+int shell_loop(void)
+{
+    char *line = NULL, *cmd;
+    size_t cap = 0;
+    ssize_t n;
+    char *argv_exec[MAX_ARGS];
+    int last_status = 0;
+    unsigned long count = 0;
+
+    while (1)
+    {
+        if (isatty(STDIN_FILENO))
+            write(STDOUT_FILENO, ":) ", 3);
+
+        n = getline(&line, &cap, stdin);
+        if (n == -1)
+        {
+            if (isatty(STDIN_FILENO))
+                write(STDOUT_FILENO, "\n", 1);
+            break;
+        }
+
+        if (n > 0 && line[n - 1] == '\n')
+            line[n - 1] = '\0';
+
+        cmd = trim_whitespace(line);
+        if (!cmd || *cmd == '\0' || parse_input(cmd, argv_exec) == 0)
+            continue;
+
+        count++;
+        run_command_line(argv_exec, count, &last_status);
+    }
+
+    free(line);
+    return (last_status);
+}
+
+/**
+ * main - Entry point
+ * Return: exit status from shell_loop
  */
 int main(void)
 {
-	char *line = NULL;
-	size_t len = 0;
-	ssize_t nread;
-	char *argv[MAX_ARGS];
-	char *token;
-	int i;
-	pid_t pid;
-	int status = 0;
-	char *cmd_path;
-
-	while (1)
-	{
-		/* print prompt only in interactive mode */
-		if (isatty(STDIN_FILENO))
-			write(STDOUT_FILENO, ":) ", 3);
-
-		nread = getline(&line, &len, stdin);
-		if (nread == -1)
-		{
-			/* EOF (Ctrl+D) or read error */
-			if (isatty(STDIN_FILENO))
-				write(STDOUT_FILENO, "\n", 1);
-			break;
-		}
-
-		/* strip newline */
-		if (nread > 0 && line[nread - 1] == '\n')
-			line[nread - 1] = '\0';
-
-		/* skip empty lines */
-		if (line[0] == '\0')
-			continue;
-
-		/* tokenize into argv[] */
-		i = 0;
-		token = strtok(line, " \t");
-		while (token != NULL && i < (MAX_ARGS - 1))
-		{
-			argv[i++] = token;
-			token = strtok(NULL, " \t");
-		}
-		argv[i] = NULL;
-
-		if (argv[0] == NULL)
-			continue;
-
-		/* built-in exit */
-		if (strcmp(argv[0], "exit") == 0)
-			break;
-
-		/* If command contains a slash -> treat as path (absolute or relative) */
-		if (strchr(argv[0], '/') != NULL)
-		{
-			if (access(argv[0], X_OK) != 0)
-			{
-				/* command file not found or not executable */
-				dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
-				status = 127;
-				continue; /* do not fork */
-			}
-			cmd_path = argv[0];
-		}
-		else
-		{
-			/* search in PATH */
-			cmd_path = find_command(argv[0]);
-			if (cmd_path == NULL)
-			{
-				write(STDERR_FILENO, "./hsh: 1: ", 11);
-				write(STDERR_FILENO, argv[0], strlen(argv[0]));
-				write(STDERR_FILENO, ": not found\n", 12);
-
-				status = 127;
-				continue; /* do not fork */
-			}
-		}
-
-		/* fork and execute */
-		pid = fork();
-		if (pid == -1)
-		{
-			perror("fork");
-			free(line);
-			return (1);
-		}
-		if (pid == 0)
-		{
-			execve(cmd_path, argv, environ);
-			/* if execve returns, it's an error */
-			dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
-			_exit(127);
-		}
-		else
-		{
-			waitpid(pid, &status, 0);
-		}
-	}
-
-	free(line);
-	return (status);
+    return (shell_loop());
 }
 
