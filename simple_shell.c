@@ -1,77 +1,83 @@
 #include "shell.h"
 
+/**
+ * main - Simple shell 0.3
+ * Return: Always 0
+ */
 int main(void)
 {
-    char *line = NULL;
+    char *line = NULL, *token = NULL, *cmd_path = NULL;
     size_t len = 0;
-    char *argv[MAX_ARGS];
+    ssize_t read;
+    char *argv[64];
+    int status = 0, i;
     pid_t pid;
-    int status;
-    char *token;
-    int i;
-    char *cmd_path;
 
     while (1)
     {
-        /* عرض prompt في الوضع التفاعلي فقط */
         if (isatty(STDIN_FILENO))
             write(STDOUT_FILENO, ":) ", 3);
 
-        /* قراءة السطر من المستخدم */
-        if (getline(&line, &len, stdin) == -1)
+        read = getline(&line, &len, stdin);
+        if (read == -1)
         {
-            if (isatty(STDIN_FILENO))
-                write(STDOUT_FILENO, "\n", 1);
-            break;
+            free(line);
+            exit(status);
         }
 
         /* إزالة السطر الجديد */
-        line[strcspn(line, "\n")] = '\0';
+        if (line[read - 1] == '\n')
+            line[read - 1] = '\0';
 
-        /* تقسيم الأمر إلى argv */
-        i = 0;
+        if (line[0] == '\0')
+            continue;
+
         token = strtok(line, " ");
-        while (token != NULL && i < MAX_ARGS - 1)
+        i = 0;
+        while (token != NULL && i < 63)
         {
-            argv[i++] = token;
+            argv[i] = token;
             token = strtok(NULL, " ");
+            i++;
         }
         argv[i] = NULL;
 
-        /* لو المستخدم ضغط Enter فقط */
-        if (argv[0] == NULL)
-            continue;
-
-        /* إيجاد المسار الكامل للأمر */
+        /* البحث عن المسار */
         cmd_path = find_command(argv[0]);
         if (cmd_path == NULL)
         {
-             dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
-             /* نعيد كود خروج 127 مثل bash */
-             status = 127;
-             continue;
+            dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+            status = 127;
+            continue;
         }
 
-
-        /* تنفيذ الأمر */
         pid = fork();
-        if (pid == 0)
+        if (pid == -1)
         {
-            execve(cmd_path, argv, environ);
-            perror("execve");
+            perror("fork");
+            free(line);
+            free(cmd_path);
             exit(EXIT_FAILURE);
         }
-        else if (pid > 0)
+
+        if (pid == 0)
         {
-            waitpid(pid, &status, 0);
+            if (execve(cmd_path, argv, environ) == -1)
+            {
+                perror("./hsh");
+                free(line);
+                free(cmd_path);
+                exit(2);
+            }
         }
         else
         {
-            perror("fork");
+            waitpid(pid, &status, 0);
+            free(cmd_path);
         }
     }
 
     free(line);
-    return 0;
+    return (status);
 }
 
