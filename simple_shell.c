@@ -77,7 +77,10 @@ int main(void)
 			cmd_path = find_command(argv[0]);
 			if (cmd_path == NULL)
 			{
-				dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+				write(STDERR_FILENO, "./hsh: 1: ", 11);
+				write(STDERR_FILENO, argv[0], strlen(argv[0]));
+				write(STDERR_FILENO, ": not found\n", 12);
+
 				status = 127;
 				continue; /* do not fork */
 			}
