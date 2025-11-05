@@ -1,83 +1,77 @@
 #include "shell.h"
 
 /**
- * main - Simple shell 0.3
+ * main - simple shell 0.3
  * Return: Always 0
  */
 int main(void)
 {
-    char *line = NULL, *token = NULL, *cmd_path = NULL;
+    char *line = NULL;
     size_t len = 0;
-    ssize_t read;
+    ssize_t nread;
     char *argv[64];
-    int status = 0, i;
+    int i, status;
     pid_t pid;
 
     while (1)
     {
-        if (isatty(STDIN_FILENO))
-            write(STDOUT_FILENO, ":) ", 3);
-
-        read = getline(&line, &len, stdin);
-        if (read == -1)
+        write(STDOUT_FILENO, ":) ", 3);
+        nread = getline(&line, &len, stdin);
+        if (nread == -1)
         {
-            free(line);
-            exit(status);
+            write(STDOUT_FILENO, "\n", 1);
+            break;
         }
 
-        /* إزالة السطر الجديد */
-        if (line[read - 1] == '\n')
-            line[read - 1] = '\0';
+        if (line[nread - 1] == '\n')
+            line[nread - 1] = '\0';
 
-        if (line[0] == '\0')
+        argv[0] = strtok(line, " ");
+        if (argv[0] == NULL)
             continue;
 
-        token = strtok(line, " ");
-        i = 0;
-        while (token != NULL && i < 63)
+        for (i = 1; i < 63; i++)
         {
-            argv[i] = token;
-            token = strtok(NULL, " ");
-            i++;
+            argv[i] = strtok(NULL, " ");
+            if (argv[i] == NULL)
+                break;
         }
         argv[i] = NULL;
 
-        /* البحث عن المسار */
-        cmd_path = find_command(argv[0]);
-        if (cmd_path == NULL)
+        /* ✅ إذا فيه '/'، نفذ مباشرة من المسار */
+        if (strchr(argv[0], '/'))
         {
-            dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
-            status = 127;
-            continue;
-        }
-
-        pid = fork();
-        if (pid == -1)
-        {
-            perror("fork");
-            free(line);
-            free(cmd_path);
-            exit(EXIT_FAILURE);
-        }
-
-        if (pid == 0)
-        {
-            if (execve(cmd_path, argv, environ) == -1)
+            if (access(argv[0], X_OK) != 0)
             {
-                perror("./hsh");
-                free(line);
-                free(cmd_path);
-                exit(2);
+                dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+                continue;
             }
         }
         else
         {
+            char *cmd_path = find_command(argv[0]);
+            if (!cmd_path)
+            {
+                dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+                continue;
+            }
+            argv[0] = cmd_path;
+        }
+
+        pid = fork();
+        if (pid == 0)
+        {
+            execve(argv[0], argv, environ);
+            dprintf(STDERR_FILENO, "./hsh: 1: %s: not found\n", argv[0]);
+            exit(127);
+        }
+        else if (pid > 0)
+        {
             waitpid(pid, &status, 0);
-            free(cmd_path);
         }
     }
 
     free(line);
-    return (status);
+    return (0);
 }
 
