@@ -3,11 +3,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
+
+#define MAX_INPUT 1024
+#define MAX_ARGS 64
 
 extern char **environ;
 
