@@ -1,4 +1,18 @@
-#include "simple_01.h"
+#include "shell.h"
+
+/**
+ * write_not_found - Prints an error message when a command is not found
+ * @count: The number of the command (for formatting)
+ * @cmd: The command name that was not found
+ */
+void write_not_found(unsigned long count, const char *cmd)
+{
+    char buffer[128];
+    int len;
+
+    len = snprintf(buffer, sizeof(buffer), "./hsh: %lu: %s: not found\n", count, cmd);
+    write(STDERR_FILENO, buffer, len);
+}
 
 /**
  * execute_child - Fork and execve using argv[0] as resolved path
