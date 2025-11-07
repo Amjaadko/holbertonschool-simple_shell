@@ -1,16 +1,26 @@
 #include "shell.h"
 
+#define MAX_INPUT 1024
+#define MAX_ARGS 64
+
+/**
+ * main - Simple shell 0.3
+ * Return: Always 0
+ */
 int main(void)
 {
     char input[MAX_INPUT];
     char *argv[MAX_ARGS];
-    char *token, *cmd_path;
+    char *args[MAX_ARGS];
+    char *token;
+    char *cmd_path;
     int i, status;
     unsigned long cmd_count = 0;
 
     while (1)
     {
         write(STDOUT_FILENO, "$ ", 2);
+
         if (!fgets(input, sizeof(input), stdin))
         {
             write(STDOUT_FILENO, "\n", 1);
@@ -21,6 +31,7 @@ int main(void)
         if (input[0] == '\0')
             continue;
 
+        /* Parse input */
         i = 0;
         token = strtok(input, " ");
         while (token && i < MAX_ARGS - 1)
@@ -31,11 +42,13 @@ int main(void)
         argv[i] = NULL;
         cmd_count++;
 
+        /* Built-in exit */
         if (strcmp(argv[0], "exit") == 0)
             break;
 
+        /* Resolve command path */
         cmd_path = argv[0];
-        if (!strchr(cmd_path, '/') && access(cmd_path, X_OK) != 0)
+        if (access(cmd_path, X_OK) != 0)
             cmd_path = find_path(argv[0]);
 
         if (!cmd_path)
@@ -44,8 +57,21 @@ int main(void)
             continue;
         }
 
-        status = execute_child((char *[]){cmd_path, argv[1], argv[2], argv[3], argv[4], NULL});
-        (void)status;
+        /* Copy cmd_path + argv into args[] to call execute_child */
+        for (i = 0; i < MAX_ARGS; i++)
+        {
+            if (argv[i])
+                args[i] = argv[i];
+            else
+            {
+                args[i] = NULL;
+                break;
+            }
+        }
+        args[0] = cmd_path; /* Ensure first argument is resolved path */
+
+        /* Execute */
+        status = execute_child(args);
     }
 
     return 0;
