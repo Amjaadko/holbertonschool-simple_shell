@@ -28,7 +28,7 @@ static char *trim_whitespace(char *s)
     while (*s == ' ' || *s == '\t' || *s == '\n')
         s++;
 
-    if (s == '\0') / empty */
+    if (*s == '\0') /* empty */
         return s;
 
     /* trim trailing */
@@ -112,8 +112,8 @@ int main(void)
             /* execute the command: pass environ so execve has the env */
             if (execve(argv_exec[0], argv_exec, environ) == -1)
             {
-                /* print error like: ./hbtn_ls: No such file or directory */
-                dprintf(STDERR_FILENO, "%s: %s\n", argv_exec[0], strerror(errno));
+                /* print error like: ./simple_shell: 1: command: not found */
+                dprintf(STDERR_FILENO, "./simple_shell: 1: %s: not found\n", argv_exec[0]);
                 _exit(EXIT_FAILURE);
             }
         }
@@ -127,3 +127,4 @@ int main(void)
     free(line);
     return 0;
 }
+
