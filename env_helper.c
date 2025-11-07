@@ -1,6 +1,6 @@
 #include "shell.h"
 
-/* Returns pointer to environment variable value, or NULL */
+/* Return pointer to value of environment variable */
 char *env_get(const char *name)
 {
     int i;

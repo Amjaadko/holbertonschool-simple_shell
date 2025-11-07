@@ -1,60 +1,42 @@
 #include "shell.h"
-#include <sys/stat.h>
 
-/* Check if file exists and executable */
-static int is_exec(const char *path)
+static int is_exec(const char *p)
 {
     struct stat st;
-    return path && stat(path, &st) == 0 && S_ISREG(st.st_mode) && access(path, X_OK) == 0;
+    return (p && stat(p, &st) == 0 && S_ISREG(st.st_mode)
+            && access(p, X_OK) == 0);
 }
 
-/* Build full path dir + / + cmd */
-static int build_full(char *full, size_t fsz, const char *dir, const char *cmd)
-{
-    size_t dl = strlen(dir), cl = strlen(cmd);
-    if (dl + 1 + cl + 1 > fsz)
-        return 0;
-    memcpy(full, dir, dl);
-    full[dl] = '/';
-    memcpy(full + dl + 1, cmd, cl);
-    full[dl + 1 + cl] = '\0';
-    return 1;
-}
-
-/* Return full path to command using PATH */
 char *find_path(const char *cmd)
 {
     static char full[1024];
-    char *path_copy, *dir;
-    const char *env_path;
+    char *path_env, *path_dup, *dir;
+    char *saveptr;
 
-    if (!cmd || *cmd == '\0')
-        return NULL;
-
-    /* If command contains '/', check it directly */
-    if (strchr(cmd, '/'))
+    if (!cmd || strchr(cmd, '/'))
         return is_exec(cmd) ? (char *)cmd : NULL;
 
-    env_path = env_get("PATH");
-    if (!env_path)
+    path_env = getenv("PATH");
+    if (!path_env)
         return NULL;
 
-    path_copy = strdup(env_path);
-    if (!path_copy)
+    path_dup = strdup(path_env);
+    if (!path_dup)
         return NULL;
 
-    dir = strtok(path_copy, ":");
+    dir = strtok_r(path_dup, ":", &saveptr);
     while (dir)
     {
-        if (build_full(full, sizeof(full), dir, cmd) && is_exec(full))
+        snprintf(full, sizeof(full), "%s/%s", dir, cmd);
+        if (is_exec(full))
         {
-            free(path_copy);
+            free(path_dup);
             return full;
         }
-        dir = strtok(NULL, ":");
+        dir = strtok_r(NULL, ":", &saveptr);
     }
 
-    free(path_copy);
+    free(path_dup);
     return NULL;
 }
 

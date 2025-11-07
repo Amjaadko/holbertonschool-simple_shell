@@ -1,8 +1,6 @@
 #include "shell.h"
-#include <sys/wait.h>
-#include <errno.h>
 
-/* Fork and execve the command, return status */
+/* Fork and execute */
 int execute_child(char **argv)
 {
     pid_t pid;
@@ -24,7 +22,7 @@ int execute_child(char **argv)
     else
     {
         if (waitpid(pid, &status, 0) == -1)
-            perror("./hsh");
+            perror("waitpid");
     }
 
     return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
