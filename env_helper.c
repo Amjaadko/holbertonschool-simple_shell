@@ -1,25 +1,20 @@
 #include "shell.h"
 
-/**
- * env_get - Retrieve the value of an environment variable
- * @name: Variable name (e.g., "PATH")
- *
- * Return: Pointer to value in environ, or NULL if not found
- */
+/* Returns pointer to environment variable value, or NULL */
 char *env_get(const char *name)
 {
-	size_t n;
-	int i;
+    int i;
+    size_t len;
 
-	if (!name)
-		return (NULL);
+    if (!name)
+        return NULL;
 
-	n = strlen(name);
-	for (i = 0; environ[i]; i++)
-	{
-		if (strncmp(environ[i], name, n) == 0 && environ[i][n] == '=')
-			return (environ[i] + n + 1);
-	}
-	return (NULL);
+    len = strlen(name);
+    for (i = 0; environ[i]; i++)
+    {
+        if (strncmp(environ[i], name, len) == 0 && environ[i][len] == '=')
+            return environ[i] + len + 1;
+    }
+    return NULL;
 }
 
