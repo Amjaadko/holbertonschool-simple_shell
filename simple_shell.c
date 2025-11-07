@@ -1,55 +1,114 @@
-#include "shell.h"
-#include <unistd.h>
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
+#define MAX_INPUT 1024
+#define MAX_ARGS 64
+extern char **environ;
+
+/**
+ * find_path - تبحث عن المسار الكامل للأمر داخل PATH
+ * @command: اسم الأمر
+ * Return: المسار الكامل أو NULL إذا لم يُوجد
+ */
+char *find_path(char *command)
+{
+    char *path = getenv("PATH");
+    char *path_copy, *dir;
+    static char full_path[1024];
+
+    if (!path)
+        return NULL;
+
+    path_copy = strdup(path);
+    if (!path_copy)
+        return NULL;
+
+    dir = strtok(path_copy, ":");
+    while (dir != NULL)
+    {
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir, command);
+        if (access(full_path, X_OK) == 0)
+        {
+            free(path_copy);
+            return full_path;
+        }
+        dir = strtok(NULL, ":");
+    }
+    free(path_copy);
+    return NULL;
+}
+
+/**
+ * main - simple shell 0.3
+ * Return: 0 on success
+ */
 int main(void)
 {
     char input[MAX_INPUT];
     char *argv[MAX_ARGS];
+    pid_t pid;
+    int status;
     char *token;
     char *cmd_path;
-    int i, status;
-    unsigned long cmd_count = 0;
+    int i;
 
     while (1)
     {
-        write(STDOUT_FILENO, "$ ", 2);
+        printf("$ ");
+        fflush(stdout);
 
-        if (!fgets(input, sizeof(input), stdin))
+        if (fgets(input, sizeof(input), stdin) == NULL)
         {
-            write(STDOUT_FILENO, "\n", 1);
+            printf("\n");
             break;
         }
 
         input[strcspn(input, "\n")] = '\0';
-        if (input[0] == '\0')
+
+        if (strlen(input) == 0)
             continue;
 
-        /* Tokenize input */
         i = 0;
         token = strtok(input, " ");
-        while (token && i < MAX_ARGS - 1)
+        while (token != NULL && i < MAX_ARGS - 1)
         {
             argv[i++] = token;
             token = strtok(NULL, " ");
         }
         argv[i] = NULL;
-        cmd_count++;
 
         if (strcmp(argv[0], "exit") == 0)
             break;
 
-        /* Find command path */
-        cmd_path = find_path(argv[0]);
+        cmd_path = argv[0];
+        if (access(cmd_path, X_OK) != 0)
+            cmd_path = find_path(argv[0]);
+
         if (!cmd_path)
         {
-            write_not_found(cmd_count, argv[0]);
+            fprintf(stderr, "%s: command not found\n", argv[0]);
             continue;
         }
 
-        argv[0] = cmd_path; /* replace with full path */
-        status = execute_child(argv);
+        pid = fork();
+        if (pid == 0)
+        {
+            execve(cmd_path, argv, environ);
+            perror("execve");
+            exit(1);
+        }
+        else if (pid > 0)
+        {
+            waitpid(pid, &status, 0);
+        }
+        else
+        {
+            perror("fork");
+        }
     }
 
     return 0;
