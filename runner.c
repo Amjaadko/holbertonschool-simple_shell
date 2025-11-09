@@ -9,17 +9,19 @@
  */
 int run_command_line(char **argv, unsigned long count, int *last_status)
 {
-	char *resolved;
+    char *resolved;
 
-	resolved = find_path(argv[0]);
-	if (!resolved)
-	{
-		write_not_found(count, argv[0]);
-		*last_status = 127;
-		return (0);
-	}
-	argv[0] = resolved;
-	*last_status = execute_child(argv);
-	return (1);
-} 
+    resolved = find_path(argv[0]);
+    if (!resolved)
+    {
+        write_not_found(count, argv[0]);
+        *last_status = 127;
+        return (0);
+    }
+
+    argv[0] = resolved;
+    /* Set last_status to whatever the child returns */
+    *last_status = execute_child(argv);
+    return (1);
+}
 
