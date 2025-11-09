@@ -8,28 +8,37 @@
  */
 int execute_child(char **argv)
 {
-	pid_t pid;
-	int status = 0;
+    pid_t pid;
+    int status = 0;
 
-	pid = fork();
-	if (pid < 0)
-	{
-		perror("./hsh");
-		return (1);
-	}
+    pid = fork();
+    if (pid < 0)
+    {
+        perror("./hsh");
+        return (1);
+    }
 
-	if (pid == 0)
-	{
-		execve(argv[0], argv, environ);
-		perror("./hsh");
-		_exit(errno == EACCES ? 126 : 127);
-	}
-	else
-	{
-		if (waitpid(pid, &status, 0) == -1)
-			perror("./hsh");
-	}
+    if (pid == 0) /* Child process */
+    {
+        execve(argv[0], argv, environ);
+        /* If execve fails */
+        _exit(errno == EACCES ? 126 : 127);
+    }
+    else /* Parent process */
+    {
+        if (waitpid(pid, &status, 0) == -1)
+        {
+            perror("./hsh");
+            return (1);
+        }
+    }
 
-	return (WIFEXITED(status) ? WEXITSTATUS(status) : 1);
+    /* Return actual exit status of child process */
+    if (WIFEXITED(status))
+        return WEXITSTATUS(status);
+    else if (WIFSIGNALED(status))
+        return 128 + WTERMSIG(status); /* terminated by signal */
+    else
+        return 1;
 }
 
