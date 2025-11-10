@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <errno.h>
 
+extern char **environ;
+
 int execute_child(char **argv)
 {
     pid_t pid;
@@ -22,17 +24,19 @@ int execute_child(char **argv)
         if (execve(argv[0], argv, environ) == -1)
         {
             perror(argv[0]);
-            _exit(2); /* مهم جداً نخرج بكود 2 لو فشل execve */
+            _exit(2); /* إذا فشل execve، نخرج بكود 2 */
         }
     }
     else
     {
         /* parent process */
         waitpid(pid, &status, 0);
-
         if (WIFEXITED(status))
             return (WEXITSTATUS(status));
+        else
+            return (2);
     }
-    return (0);
+
+    return (2);
 }
 

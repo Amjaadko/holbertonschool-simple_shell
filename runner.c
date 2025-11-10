@@ -1,16 +1,30 @@
 #include "simple_01.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-/* run command line and update last_status */
 int run_command_line(char **argv, unsigned long count, int *last_status)
 {
-    int status;       /* تعريف المتغير في بداية الدالة */
-    (void)count;      /* تجاهل count إذا لم تستخدم */
+    int status;
 
-    status = execute_child(argv); /* نفذ الأمر واحصل على حالة الخروج */
+    (void)count;
 
-    if (last_status)   /* خزّن قيمة الخروج في last_status */
-        *last_status = status;
+    if (argv == NULL || argv[0] == NULL)
+        return (1);
 
-    return status;
+    /* أمر exit */
+    if (strcmp(argv[0], "exit") == 0)
+    {
+        int code = (*last_status == 0) ? 0 : *last_status;
+        exit(code);
+    }
+
+    /* تنفيذ الأمر */
+    status = execute_child(argv);
+
+    /* نخزن آخر status */
+    *last_status = status;
+
+    return (status);
 }
 
