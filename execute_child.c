@@ -1,43 +1,35 @@
 #include "simple_01.h"
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdio.h>
 
-extern char **environ;
-
+/**
+ * execute_child - Fork and execve using argv[0] as resolved path
+ * @argv: Argument vector; argv[0] must be an executable path
+ *
+ * Return: Child exit status (0..255), 126 on EACCES, 127 on ENOENT
+ */
 int execute_child(char **argv)
 {
-    pid_t pid;
-    int status;
+	pid_t pid;
+	int status = 0;
 
-    pid = fork();
-    if (pid == -1)
-    {
-        perror("fork");
-        return (1);
-    }
+	pid = fork();
+	if (pid < 0)
+	{
+		perror("./hsh");
+		return (1);
+	}
 
-    if (pid == 0)
-    {
-        /* child process */
-        if (execve(argv[0], argv, environ) == -1)
-        {
-            perror(argv[0]);
-            _exit(2); /* مهم جدًا */
-        }
-    }
-    else
-    {
-        /* parent process */
-        waitpid(pid, &status, 0);
-        if (WIFEXITED(status))
-            return (WEXITSTATUS(status));
-        else
-            return (2);
-    }
+	if (pid == 0)
+	{
+		execve(argv[0], argv, environ);
+		perror("./hsh");
+		_exit(errno == EACCES ? 126 : 127);
+	}
+	else
+	{
+		if (waitpid(pid, &status, 0) == -1)
+			perror("./hsh");
+	}
 
-    return (2);
+	return (WIFEXITED(status) ? WEXITSTATUS(status) : 1);
 }
 

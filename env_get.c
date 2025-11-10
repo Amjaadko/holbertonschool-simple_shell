@@ -6,8 +6,10 @@
  *
  * Return: Pointer to value within environ or NULL if not found
  */
+
 char *env_get(const char *name)
 {
+	extern char **environ;
 	size_t n;
 	int i;
 
@@ -22,4 +24,3 @@ char *env_get(const char *name)
 	}
 	return (NULL);
 }
-
