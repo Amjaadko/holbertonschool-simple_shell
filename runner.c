@@ -15,8 +15,7 @@ int run_command_line(char **argv, unsigned long count, int *last_status)
     /* أمر exit */
     if (strcmp(argv[0], "exit") == 0)
     {
-        int code = (*last_status == 0) ? 0 : *last_status;
-        exit(code);
+        exit(*last_status); /* نستخدم آخر status */
     }
 
     /* تنفيذ الأمر */
