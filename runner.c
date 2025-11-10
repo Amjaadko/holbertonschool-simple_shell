@@ -1,29 +1,37 @@
 #include "simple_01.h"
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 
+/**
+ * run_command_line - Execute a command using PATH resolution
+ * @argv: Arguments array (argv[0] is command)
+ * @count: Command counter (for error messages)
+ * @last_status: Pointer to store child exit status
+ * Return: 0 always
+ */
 int run_command_line(char **argv, unsigned long count, int *last_status)
 {
-    int status;
+    char *path;
 
-    (void)count;
+    if (!argv || !argv[0])
+        return (0);
 
-    if (argv == NULL || argv[0] == NULL)
-        return (1);
-
-    /* أمر exit */
-    if (strcmp(argv[0], "exit") == 0)
+    path = find_path(argv[0]);
+    if (!path)
     {
-        exit(*last_status); /* نستخدم آخر status */
+        write_not_found(count, argv[0]);
+        *last_status = 127;
+        return (*last_status);
     }
 
-    /* تنفيذ الأمر */
-    status = execute_child(argv);
+    *last_status = execute_child(argv);
+    return (*last_status);
+}
 
-    /* نخزن آخر status */
-    *last_status = status;
-
-    return (status);
+/**
+ * main - Entry point of the shell
+ * Return: exit status from shell_loop
+ */
+int main(void)
+{
+    return shell_loop();
 }
 
