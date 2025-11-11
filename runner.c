@@ -9,29 +9,29 @@
  */
 int run_command_line(char **argv, unsigned long count, int *last_status)
 {
-    char *path;
+	char *path;
 
-    if (!argv || !argv[0])
-        return (0);
+	if (!argv || !argv[0])
+		return (0);
 
-    path = find_path(argv[0]);
-    if (!path)
-    {
-        write_not_found(count, argv[0]);
-        *last_status = 127;
-        return (*last_status);
-    }
+	path = find_path(argv[0]);
+	if (!path)
+	{
+		write_not_found(count, argv[0]);
+		*last_status = 127;
+		return (*last_status);
+	}
 
-    *last_status = execute_child(argv);
-    return (*last_status);
+	*last_status = execute_child(argv);
+	return (*last_status);
 }
 
 /**
- * main - Entry point of the shell
+ * main - Entry point
  * Return: exit status from shell_loop
  */
 int main(void)
 {
-    return shell_loop();
+	return (shell_loop());
 }
 
