@@ -1,0 +1,41 @@
+.TH simple_shell 1 "November 2025" "Version 1.0" "User Commands"
+.SH NAME
+simple_shell \- A simple UNIX command line interpreter
+
+.SH SYNOPSIS
+.B simple_shell
+[\fIcommand\fR [\fIarguments\fR]]
+
+.SH DESCRIPTION
+The
+.B simple_shell
+program provides a basic UNIX command interpreter.
+It reads commands from the standard input and executes them
+by searching for the corresponding program in the system PATH.
+
+The shell supports:
+.IP •
+Executing programs using their full path or by searching in the PATH variable.
+.IP •
+Built-in commands like \fIexit\fR and \fIenv\fR.
+.IP •
+Command line arguments and basic error handling.
+
+.SH EXAMPLES
+.TP
+Run a simple command:
+.B $ ls
+.TP
+Run a command with arguments:
+.B $ echo Hello World
+.TP
+Exit the shell:
+.B $ exit
+
+.SH AUTHORS
+Written by Amjad Al Omani.
+
+.SH SEE ALSO
+.BR sh (1),
+.BR bash (1)
+
