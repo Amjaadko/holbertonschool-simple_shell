@@ -1,8 +1,5 @@
 # 🐚 Simple Shell Project
 
-<p align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/8/8f/Bash_Logo_Colored.svg" alt="Shell Logo" width="200">
-</p>
 
 ---
 
